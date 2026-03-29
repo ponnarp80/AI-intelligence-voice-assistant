@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaMicrophone, FaMicrophoneSlash, FaSpinner } from 'react-icons/fa';
+import { FaMicrophone, FaMicrophoneSlash, FaSpinner, FaStop } from 'react-icons/fa';
 import './MicrophoneButton.css';
 
 const MicrophoneButton = ({ status, onToggleListening }) => {
@@ -8,8 +8,8 @@ const MicrophoneButton = ({ status, onToggleListening }) => {
   const getIcon = () => {
     switch (status) {
       case 'listening': return <FaMicrophone size={32} />;
-      case 'processing': return <FaSpinner size={32} className="spin" />;
-      case 'speaking': return <FaMicrophone size={32} />;
+      case 'processing': return <FaStop size={32} />;
+      case 'speaking': return <FaStop size={32} />;
       case 'error': return <FaMicrophoneSlash size={32} />;
       default: return <FaMicrophone size={32} />;
     }
@@ -24,8 +24,7 @@ const MicrophoneButton = ({ status, onToggleListening }) => {
       <button 
         className={`mic-btn ${status}`} 
         onClick={onToggleListening}
-        disabled={status === 'processing' || status === 'speaking'}
-        aria-label="Toggle Microphone"
+        aria-label={status === 'processing' || status === 'speaking' ? "Terminate Generation" : "Toggle Microphone"}
       >
         {getIcon()}
       </button>

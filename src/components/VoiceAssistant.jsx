@@ -12,6 +12,7 @@ const VoiceAssistant = () => {
   
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
+  const abortControllerRef = useRef(null);
 
   // Initialize Gemini
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -68,13 +69,21 @@ const VoiceAssistant = () => {
     setStatus('processing');
     
     try {
+      // Setup abort controller for API cancellation
+      abortControllerRef.current = new AbortController();
+      
       // Call Gemini API
       // Use gemini-2.5-flash for text responses
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const prompt = text + " (Keep your response concise and conversational as you are a voice assistant)";
       
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent(prompt, {
+        signal: abortControllerRef.current.signal
+      });
       const outputText = result.response.text();
+      
+      // Check if we were cancelled while waiting
+      if (abortControllerRef.current.signal.aborted) return;
       
       // Add AI response to UI
       setMessages(prev => [...prev, { role: 'ai', text: outputText }]);
@@ -84,9 +93,13 @@ const VoiceAssistant = () => {
       
     } catch (error) {
       console.error('Gemini API Error:', error);
-      setStatus('error');
-      setErrorMsg('Failed to process request. Check API key or connection.');
-      setTimeout(() => setStatus('idle'), 3000);
+      if (error.name === 'AbortError' || error.message?.includes('abort')) {
+        console.log('Request aborted by user');
+      } else {
+        setStatus('error');
+        setErrorMsg('Failed to process request. Check API key or connection.');
+        setTimeout(() => setStatus('idle'), 3000);
+      }
     }
   };
 
@@ -117,12 +130,23 @@ const VoiceAssistant = () => {
   };
 
   const toggleListening = () => {
+    // Terminate during speaking
     if (status === 'speaking') {
       synthRef.current.cancel();
       setStatus('idle');
       return;
     }
+
+    // Terminate during processing
+    if (status === 'processing') {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      setStatus('idle');
+      return;
+    }
     
+    // Stop recording if currently listening
     if (status === 'listening') {
       recognitionRef.current?.stop();
       setStatus('idle');
@@ -144,7 +168,6 @@ const VoiceAssistant = () => {
   return (
     <div className="glass-panel">
       <h1>Intelligent Assistant</h1>
-      <p className="subtitle">Powered by Gemini AI</p>
       
       {errorMsg && <div className="error-toast">{errorMsg}</div>}
       
