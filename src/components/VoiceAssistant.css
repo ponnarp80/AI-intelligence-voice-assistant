@@ -1,0 +1,15 @@
+.error-toast {
+  background: rgba(255, 65, 108, 0.2);
+  border: 1px solid rgba(255, 65, 108, 0.5);
+  color: #ffb3c6;
+  padding: 0.8rem;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 0.9rem;
+  animation: slide-down 0.3s ease-out;
+}
+
+@keyframes slide-down {
+  0% { transform: translateY(-10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
