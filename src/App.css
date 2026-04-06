@@ -1,7 +1,8 @@
-/* App.css is mostly handled in index.css as global styles, 
-   but added here for localized container needs */
-   
-.app-container {
+/* App-level layout helper — global styles live in index.css */
+.app-root {
   display: flex;
-  margin: 0 auto;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
