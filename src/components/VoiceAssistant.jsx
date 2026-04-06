@@ -8,7 +8,7 @@ import './VoiceAssistant.css';
 // Resolve the AI name from the current voice gender
 const getAssistantName = (gender) => (gender === 'female' ? 'FRIDAY' : 'JARVIS');
 
-const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voiceGender }) => {
+const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voiceGender, currentUser }) => {
   const [status, setStatus] = useState('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -90,8 +90,22 @@ const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voice
     try {
       abortControllerRef.current = new AbortController();
 
-      const model  = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      const name   = getAssistantName(voiceGenderRef.current);
+      // Retrieve configuration (BYOK or fallback)
+      let customApi, customModel;
+      if (currentUser?.email) {
+        const usersDB = JSON.parse(localStorage.getItem('mockUsersDB') || '{}');
+        const dbUser = usersDB[currentUser.email];
+        customApi = dbUser?.customApiKey || null;
+        customModel = dbUser?.customModel || null;
+      }
+
+      // Initialize generative AI with overriding keys
+      const activeKey = customApi || import.meta.env.VITE_GEMINI_API_KEY;
+      const activeModel = customModel || 'gemini-2.5-flash';
+      
+      const genAIClient = new GoogleGenerativeAI(activeKey);
+      const model = genAIClient.getGenerativeModel({ model: activeModel });
+      const name = getAssistantName(voiceGenderRef.current);
 
       // Detect if user explicitly asked for more detail
       const wantsMore = /more|detail|explain|elaborate|expand|in depth|full|complete|longer|everything/i.test(text);
@@ -112,6 +126,23 @@ User: ${text}`;
       if (abortControllerRef.current.signal.aborted) return;
 
       setMessages((prev) => [...prev, { role: 'ai', text: outputText }]);
+      
+      // Save interaction to History
+      if (currentUser?.email) {
+        try {
+          const key = `chatHistory_${currentUser.email}`;
+          const currentLog = JSON.parse(localStorage.getItem(key) || '[]');
+          currentLog.push({
+            timestamp: new Date().toISOString(),
+            prompt: text,
+            response: outputText
+          });
+          localStorage.setItem(key, JSON.stringify(currentLog));
+        } catch (e) {
+          console.error("Failed to save history", e);
+        }
+      }
+
       speakText(outputText);
     } catch (error) {
       console.error('Gemini API Error:', error);
@@ -119,8 +150,8 @@ User: ${text}`;
         setStatus('idle');
       } else {
         setStatus('error');
-        setErrorMsg('Failed to get a response. Check your API key or network.');
-        setTimeout(() => setStatus('idle'), 4000);
+        setErrorMsg(`API Error: ${error.message || 'Check your network connection.'}`);
+        setTimeout(() => setStatus('idle'), 6000); // give them more time to read it
       }
     }
   };

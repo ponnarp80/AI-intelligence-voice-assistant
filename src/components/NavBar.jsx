@@ -1,14 +1,22 @@
 import React from 'react';
-import { FaBrain, FaTrashAlt, FaVolumeMute, FaVolumeUp, FaMoon, FaSun, FaExchangeAlt } from 'react-icons/fa';
+import { FaBrain, FaTrashAlt, FaVolumeMute, FaVolumeUp, FaMoon, FaSun, FaExchangeAlt, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
 import './NavBar.css';
 
-const NavBar = ({ onClearChat, isMuted, onToggleMute, isDark, onToggleTheme, voiceGender, onToggleGender }) => {
+const NavBar = ({ 
+  onClearChat, isMuted, onToggleMute, isDark, onToggleTheme, 
+  voiceGender, onToggleGender, onLogout, currentView, onBackToDash 
+}) => {
   const isFemale = voiceGender === 'female';
 
   return (
     <nav className="navbar" aria-label="Main navigation">
-      {/* Brand */}
+      {/* Brand & Navigation */}
       <div className="navbar-brand">
+        {['assistant', 'history', 'settings'].includes(currentView) && (
+          <button className="nav-btn icon-only" onClick={onBackToDash} title="Back to Dashboard">
+            <FaArrowLeft size={14} />
+          </button>
+        )}
         <FaBrain className="brand-icon" />
         <span className="brand-name">{isFemale ? 'FRIDAY' : 'JARVIS'}</span>
       </div>
@@ -49,15 +57,28 @@ const NavBar = ({ onClearChat, isMuted, onToggleMute, isDark, onToggleTheme, voi
           <span>{isDark ? 'Light' : 'Dark'}</span>
         </button>
 
-        {/* Clear Chat */}
+        {/* Clear Chat (Only in assistant view) */}
+        {currentView === 'assistant' && (
+          <button
+            className="nav-btn danger"
+            onClick={onClearChat}
+            title="Clear conversation"
+            aria-label="Clear chat history"
+          >
+            <FaTrashAlt size={15} />
+            <span>Clear</span>
+          </button>
+        )}
+
+        {/* Sign Out */}
         <button
-          className="nav-btn danger"
-          onClick={onClearChat}
-          title="Clear conversation"
-          aria-label="Clear chat history"
+          className="nav-btn"
+          onClick={onLogout}
+          title="Sign Out"
+          aria-label="Sign out of account"
         >
-          <FaTrashAlt size={15} />
-          <span>Clear</span>
+          <FaSignOutAlt size={15} />
+          <span>Sign Out</span>
         </button>
       </div>
     </nav>
