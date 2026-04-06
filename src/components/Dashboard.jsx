@@ -49,6 +49,17 @@ const Dashboard = ({ user, onLaunchAssistant, onNavigate }) => {
             <p>Manage your profile, password, and preferences</p>
           </div>
         </div>
+
+        {/* AI Persona Card */}
+        <div className="dash-card secondary-card glass-panel" onClick={() => onNavigate('persona')}>
+          <div className="card-icon-wrapper">
+            <span style={{ fontSize: '1.5rem', color: '#00f2fe' }}>🎭</span>
+          </div>
+          <div className="card-content">
+            <h2>AI Persona Engine</h2>
+            <p>Customize Assistant personality and verbosity</p>
+          </div>
+        </div>
       </div>
     </div>
   );

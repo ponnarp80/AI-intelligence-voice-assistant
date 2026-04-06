@@ -12,7 +12,7 @@ const NavBar = ({
     <nav className="navbar" aria-label="Main navigation">
       {/* Brand & Navigation */}
       <div className="navbar-brand">
-        {['assistant', 'history', 'settings'].includes(currentView) && (
+        {['assistant', 'history', 'settings', 'persona'].includes(currentView) && (
           <button className="nav-btn icon-only" onClick={onBackToDash} title="Back to Dashboard">
             <FaArrowLeft size={14} />
           </button>

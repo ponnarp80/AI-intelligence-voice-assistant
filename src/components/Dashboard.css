@@ -36,32 +36,34 @@
 
 .dash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 1.5rem;
 }
 
 .dash-card {
   display: flex;
-  align-items: flex-start;
-  gap: 1.5rem;
-  padding: 2rem;
+  flex-direction: column; /* Stack vertically for a card look */
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 1.2rem;
+  padding: 2.5rem 2rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   position: relative;
   overflow: hidden;
+  height: 100%;
 }
 
 .dash-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border-color: rgba(0, 242, 254, 0.3);
 }
 
 .primary-card {
-  grid-column: 1 / -1; /* spans full width on desktop */
-  background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(155, 81, 224, 0.05));
-  border: 1px solid rgba(79, 172, 254, 0.25);
-  align-items: center;
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(155, 81, 224, 0.1));
+  border: 1px solid rgba(0, 242, 254, 0.3);
 }
 
 .primary-card:hover {

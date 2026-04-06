@@ -110,15 +110,24 @@ const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voice
       // Detect if user explicitly asked for more detail
       const wantsMore = /more|detail|explain|elaborate|expand|in depth|full|complete|longer|everything/i.test(text);
 
-      const prompt = wantsMore
-        ? `You are ${name}, a smart and friendly AI assistant. The user wants a detailed answer. Respond clearly and thoroughly.
+      let toneInstruction = "a smart and friendly assistant";
+      if (currentUser?.aiTone) {
+        switch (currentUser.aiTone) {
+          case 'professional': toneInstruction = "a highly professional, formal, and strictly efficient assistant"; break;
+          case 'sarcastic': toneInstruction = "a witty, slightly sarcastic, and humorous assistant that gives cheeky but correct answers"; break;
+          case 'creative': toneInstruction = "a wildly creative and dramatic storytelling assistant that uses vivid analogies"; break;
+          default: toneInstruction = "a smart and friendly assistant";
+        }
+      }
 
-User: ${text}`
-        : `You are ${name}, a smart and friendly AI assistant. Answer the following question in 3 to 5 lines maximum. Be clear, direct, and conversational. Do not list bullet points unless asked.
+      let verbosityInstruction = "Answer the following question in 3 to 5 lines maximum. Be clear, direct, and conversational. Do not list bullet points unless asked.";
+      if (wantsMore || currentUser?.aiVerbosity === 'comprehensive') {
+        verbosityInstruction = "The user wants a highly detailed, comprehensive answer. Respond thoroughly, clearly, and expand upon concepts gracefully.";
+      }
 
-User: ${text}`;
+      const prompt = `You are ${name}, ${toneInstruction}. ${verbosityInstruction}\n\nUser: ${text}`;
 
-      const result     = await model.generateContent(prompt, {
+      const result = await model.generateContent(prompt, {
         signal: abortControllerRef.current.signal,
       });
       const outputText = result.response.text();

@@ -5,12 +5,13 @@ import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import History from './components/History';
 import AccountSettings from './components/AccountSettings';
+import AIPersonaSettings from './components/AIPersonaSettings';
 import './App.css';
 
 function App() {
   // App state
   const [currentUser, setCurrentUser]   = useState(null);
-  const [currentView, setCurrentView]   = useState('auth'); // 'auth' | 'dashboard' | 'assistant' | 'history' | 'settings'
+  const [currentView, setCurrentView]   = useState('auth'); // 'auth' | 'dashboard' | 'assistant' | 'history' | 'settings' | 'persona'
   
   // Settings / feature state
   const [messages, setMessages]       = useState([]);
@@ -95,6 +96,13 @@ function App() {
 
         {currentView === 'settings' && (
           <AccountSettings 
+            currentUser={currentUser} 
+            onUpdateUser={handleLogin} 
+          />
+        )}
+
+        {currentView === 'persona' && (
+          <AIPersonaSettings 
             currentUser={currentUser} 
             onUpdateUser={handleLogin} 
           />

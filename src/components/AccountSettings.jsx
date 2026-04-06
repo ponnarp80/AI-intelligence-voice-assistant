@@ -61,7 +61,7 @@ const AccountSettings = ({ currentUser, onUpdateUser }) => {
       onUpdateUser({ 
         ...currentUser, 
         customApiKey: formData.customApiKey, 
-        customModel: formData.customModel 
+        customModel: formData.customModel
       });
       setMessage({ type: 'success', text: 'AI Configuration successfully updated!' });
     }
