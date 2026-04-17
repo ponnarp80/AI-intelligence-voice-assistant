@@ -8,7 +8,10 @@ const AccountSettings = ({ currentUser, onUpdateUser }) => {
     currentPassword: '',
     newPassword: '',
     customApiKey: currentUser?.customApiKey || '',
-    customModel: currentUser?.customModel || 'gemini-2.5-flash'
+    customModel: currentUser?.customModel || 'gemini-2.5-flash',
+    groqApiKey: currentUser?.groqApiKey || '',
+    groqModel: currentUser?.groqModel || 'llama-3.3-70b-versatile',
+    primaryProvider: currentUser?.primaryProvider || 'gemini'
   });
   
   const [message, setMessage] = useState({ type: '', text: '' }); // type: 'success' | 'error'
@@ -56,12 +59,18 @@ const AccountSettings = ({ currentUser, onUpdateUser }) => {
     if (currentUser?.email && usersDB[currentUser.email]) {
       usersDB[currentUser.email].customApiKey = formData.customApiKey;
       usersDB[currentUser.email].customModel = formData.customModel;
+      usersDB[currentUser.email].groqApiKey = formData.groqApiKey;
+      usersDB[currentUser.email].groqModel = formData.groqModel;
+      usersDB[currentUser.email].primaryProvider = formData.primaryProvider;
       localStorage.setItem('mockUsersDB', JSON.stringify(usersDB));
       
       onUpdateUser({ 
         ...currentUser, 
         customApiKey: formData.customApiKey, 
-        customModel: formData.customModel
+        customModel: formData.customModel,
+        groqApiKey: formData.groqApiKey,
+        groqModel: formData.groqModel,
+        primaryProvider: formData.primaryProvider
       });
       setMessage({ type: 'success', text: 'AI Configuration successfully updated!' });
     }
@@ -141,6 +150,32 @@ const AccountSettings = ({ currentUser, onUpdateUser }) => {
           </div>
           <form onSubmit={handleUpdateConfig} className="settings-form">
             <div className="form-group">
+              <label>Primary AI Engine (Default)</label>
+              <div className="provider-selector">
+                <label className="radio-label">
+                  <input 
+                    type="radio" 
+                    name="primaryProvider" 
+                    value="gemini" 
+                    checked={formData.primaryProvider === 'gemini'} 
+                    onChange={handleChange} 
+                  />
+                  <span>Gemini</span>
+                </label>
+                <label className="radio-label">
+                  <input 
+                    type="radio" 
+                    name="primaryProvider" 
+                    value="groq" 
+                    checked={formData.primaryProvider === 'groq'} 
+                    onChange={handleChange} 
+                  />
+                  <span>Groq</span>
+                </label>
+              </div>
+              <small>Choose which AI brain handles your commands first.</small>
+            </div>
+            <div className="form-group">
               <label>Custom Gemini API Key</label>
               <input 
                 type="password" 
@@ -161,6 +196,36 @@ const AccountSettings = ({ currentUser, onUpdateUser }) => {
               </select>
             </div>
             <button type="submit" className="save-btn">Save Configuration</button>
+          </form>
+        </div>
+        {/* Groq Config Card */}
+        <div className="settings-card glass-panel">
+          <div className="card-title">
+            <FaKey className="title-icon" style={{ color: '#f59e0b' }} />
+            <h2>Groq Configuration (Failover)</h2>
+          </div>
+          <form onSubmit={handleUpdateConfig} className="settings-form">
+            <div className="form-group">
+              <label>Groq API Key</label>
+              <input 
+                type="password" 
+                name="groqApiKey" 
+                placeholder="gsk_..."
+                value={formData.groqApiKey} 
+                onChange={handleChange} 
+              />
+              <small>Used as a backup when Gemini hits rate limits.</small>
+            </div>
+            <div className="form-group">
+              <label>Groq Model Variant</label>
+              <select name="groqModel" value={formData.groqModel} onChange={handleChange} className="settings-select">
+                <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
+                <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
+                <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+                <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+              </select>
+            </div>
+            <button type="submit" className="save-btn">Save Groq Config</button>
           </form>
         </div>
       </div>

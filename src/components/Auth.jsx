@@ -62,7 +62,10 @@ const Auth = ({ onLogin }) => {
         setError("Invalid email or password.");
         return;
       }
-      onLogin({ name: user.name, email: user.email, joined: user.joined });
+      
+      // Load EVERYTHING except the password into the session
+      const { password, ...userProfile } = user;
+      onLogin(userProfile);
     }
   };
 

@@ -67,6 +67,7 @@ const AIPersonaSettings = ({ currentUser, onUpdateUser }) => {
             <div className="form-group">
               <label>Model Verbosity Restrictions</label>
               <select name="aiVerbosity" value={formData.aiVerbosity} onChange={handleChange} className="settings-select">
+                <option value="ultra-concise">Ultra-Short (2-5 Words Only)</option>
                 <option value="concise">Micro-Responses (3-5 Lines Maximum)</option>
                 <option value="comprehensive">Comprehensive Output (Long essays)</option>
               </select>

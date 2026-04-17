@@ -163,8 +163,8 @@ const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voice
             command = words.slice(triggerIdx + 1).join(' ');
             
             if (command.trim().length > 2) {
-              // We have a command! Stop recognition temporarily to process
-              recognitionRef.current?.stop(); 
+              // We have a command! 
+              // Instead of stopping, we just let it continue if possible, or handle the status carefully
               handleUserMessage(command);
             }
           }
@@ -191,12 +191,17 @@ const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voice
       recognitionRef.current.onend = () => {
         // If HandsFree is ON, we must keep listening even if it stops
         if (isHandsFreeRef.current) {
-          try {
-            recognitionRef.current.start();
-            setStatus('listening');
-          } catch (e) {
-            // Might already be started
-          }
+          // Use a small timeout to avoid immediate restart loops that browsers often block
+          setTimeout(() => {
+            if (isHandsFreeRef.current) {
+              try {
+                recognitionRef.current.start();
+                setStatus('listening');
+              } catch (e) {
+                // Already started or blocked
+              }
+            }
+          }, 300);
         } else {
           setStatus((prev) => (prev === 'listening' ? 'idle' : prev));
         }
@@ -220,6 +225,9 @@ const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voice
   const handleUserMessage = async (text) => {
     if (!text.trim()) return;
 
+    // Force recognition to stop to ensure a clean state for the next command
+    recognitionRef.current?.stop();
+
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setStatus('processing');
 
@@ -242,23 +250,27 @@ const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voice
       const genAIClient = new GoogleGenerativeAI(activeKey);
       const model = genAIClient.getGenerativeModel({ model: activeModel });
       const name = getAssistantName(voiceGenderRef.current);
+      const primary = currentUser?.primaryProvider || 'gemini';
 
+      // EXIT Logic
+      if (text.toLowerCase().includes('exit jarvis') || text.toLowerCase().includes('exit friday')) {
+        synthRef.current.cancel();
+        recognitionRef.current?.stop();
+        setIsHandsFree(false);
+        setStatus('idle');
+        setMessages((prev) => [...prev, { role: 'ai', text: '[System: Exit Sequence Initiated]' }]);
+        return;
+      }
+
+      // ... Prompt logic ... (unchanged)
       const wantsMore = /more|detail|explain|elaborate|expand|in depth|full|complete|longer|everything/i.test(text);
       const isContextRef = /this|selection|selected|that code|that line|copied|it/i.test(text);
-
       let contextToUse = activeContextRef.current;
-
-      // If text mentions "copied" or if no selection found, try reading clipboard (requires focus)
       if (isContextRef) {
         try {
-          // navigator.clipboard.readText() might fail if tab is background or not focused
           const clipboardText = await navigator.clipboard.readText();
-          if (clipboardText && clipboardText.trim()) {
-            contextToUse = clipboardText.trim();
-          }
-        } catch (err) {
-          console.warn("Clipboard access denied or unavailable:", err);
-        }
+          if (clipboardText && clipboardText.trim()) contextToUse = clipboardText.trim();
+        } catch (err) { console.warn("Clipboard access denied:", err); }
       }
 
       let toneInstruction = "a smart and friendly assistant";
@@ -272,27 +284,59 @@ const VoiceAssistant = ({ onClearMessages, messages, setMessages, isMuted, voice
       }
 
       let verbosityInstruction = "Answer the following question in 3 to 5 lines maximum. Be clear, direct, and conversational. Do not list bullet points unless asked.";
-      if (wantsMore || currentUser?.aiVerbosity === 'comprehensive') {
+      if (currentUser?.aiVerbosity === 'ultra-concise') {
+        verbosityInstruction = "The user wants EXTREMELY short answers. Respond in 2 to 5 words MAXIMUM. No full sentences if not needed.";
+      } else if (wantsMore || currentUser?.aiVerbosity === 'comprehensive') {
         verbosityInstruction = "The user wants a highly detailed, comprehensive answer. Respond thoroughly, clearly, and expand upon concepts gracefully.";
       }
 
       let prompt = `You are ${name}, ${toneInstruction}. ${verbosityInstruction}\n\n`;
-
       prompt += `CRITICAL: You have the ability to open applications. If the user asks to open an app, you MUST exactly append the following tag to your response: [COMMAND:OPEN, TARGET:appname].
 Supported app names: ${Object.keys(COMMAND_MAP).join(', ')}.
-KEEP YOUR RESPONSE SHORT (1-2 sentences) when opening an app.
-Example: "Opening WhatsApp for you. [COMMAND:OPEN, TARGET:whatsapp]"\n\n`;
+RESPONSE RULE FOR APPS: Keep it to 2-5 words.\n\n`;
       
       if (isContextRef && contextToUse) {
         prompt += `BACKGROUND CONTEXT (from user's selection/clipboard):\n"""\n${contextToUse}\n"""\n\n`;
       }
-
       prompt += `User: ${text}`;
 
-      const result = await model.generateContent(prompt, {
-        signal: abortControllerRef.current.signal,
-      });
-      const outputText = result.response.text();
+      // DYNAMIC PROVIDER CALL
+      let result = null;
+      let usedProvider = primary;
+
+      const callGemini = async () => {
+        const genAIClient = new GoogleGenerativeAI(activeKey);
+        const model = genAIClient.getGenerativeModel({ model: activeModel });
+        return await model.generateContent(prompt, { signal: abortControllerRef.current.signal });
+      };
+
+      try {
+        if (primary === 'groq' && currentUser?.groqApiKey) {
+          result = await callGroqAPI(prompt, currentUser.groqApiKey, currentUser.groqModel || 'llama-3.3-70b-versatile');
+        } else {
+          result = await callGemini();
+        }
+      } catch (error) {
+        console.warn(`${primary} failed, attempting failover...`, error);
+        // FAILOVER
+        if (primary === 'gemini' && currentUser?.groqApiKey && (error.message?.includes('429') || error.message?.toLowerCase().includes('quota'))) {
+           usedProvider = 'groq';
+           result = await callGroqAPI(prompt, currentUser.groqApiKey, currentUser.groqModel || 'llama-3.3-70b-versatile');
+        } else if (primary === 'groq') {
+           usedProvider = 'gemini';
+           result = await callGemini();
+        } else {
+          throw error;
+        }
+      }
+
+      // Parse output
+      let outputText = '';
+      if (result.response) {
+        outputText = result.response.text();
+      } else if (result.choices && result.choices[0]) {
+        outputText = result.choices[0].message.content;
+      }
 
       if (abortControllerRef.current.signal.aborted) return;
 
@@ -346,8 +390,18 @@ Example: "Opening WhatsApp for you. [COMMAND:OPEN, TARGET:whatsapp]"\n\n`;
         setStatus('idle');
       } else {
         setStatus('error');
-        setErrorMsg(`API Error: ${error.message || 'Check your network connection.'}`);
-        setTimeout(() => setStatus('idle'), 6000); // give them more time to read it
+        
+        let friendlyMsg = `API Error: ${error.message || 'Check your network connection.'}`;
+        
+        // Handle common Quota/429 errors gracefully
+        if (error.message?.includes('429') || error.message?.toLowerCase().includes('quota')) {
+          friendlyMsg = "JARVIS is currently over-taxed! Please wait about 20 seconds before your next command (API Quota Exceeded).";
+        } else if (error.message?.toLowerCase().includes('model not found')) {
+          friendlyMsg = "The selected AI model is currently unavailable. Please check your settings.";
+        }
+
+        setErrorMsg(friendlyMsg);
+        setTimeout(() => setStatus('idle'), 8000); 
       }
     }
   };
@@ -418,10 +472,14 @@ Example: "Opening WhatsApp for you. [COMMAND:OPEN, TARGET:whatsapp]"\n\n`;
       utterance.volume = 1.0;
 
       utterance.onstart = () => setStatus('speaking');
-      utterance.onend   = () => setStatus('idle');
+      utterance.onend = () => {
+        setStatus('idle');
+        if (isHandsFreeRef.current) startRecognition();
+      };
       utterance.onerror = (e) => {
         console.error('TTS Error:', e);
         setStatus('idle');
+        if (isHandsFreeRef.current) startRecognition();
       };
 
       synthRef.current.speak(utterance);
@@ -440,11 +498,13 @@ Example: "Opening WhatsApp for you. [COMMAND:OPEN, TARGET:whatsapp]"\n\n`;
       utterance.onend = () => {
         clearInterval(keepAlive);
         setStatus('idle');
+        if (isHandsFreeRef.current) startRecognition();
       };
       utterance.onerror = (e) => {
         clearInterval(keepAlive);
         console.error('TTS Error:', e);
         setStatus('idle');
+        if (isHandsFreeRef.current) startRecognition();
       };
     }, 150); // 150ms delay to let cancel() fully complete
   };
@@ -469,6 +529,29 @@ Example: "Opening WhatsApp for you. [COMMAND:OPEN, TARGET:whatsapp]"\n\n`;
       window.open(searchUrl, '_blank');
       setTimeout(() => setToastMsg(''), 4000);
     }
+  };
+
+  const callGroqAPI = async (prompt, apiKey, model) => {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7
+      }),
+      signal: abortControllerRef.current.signal
+    });
+
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error?.message || 'Groq API Error');
+    }
+
+    return await response.json();
   };
 
   // ── Mic toggle / terminate ───────────────────────────────────────────────────
