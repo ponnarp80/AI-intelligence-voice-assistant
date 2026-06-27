@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const apiKey = 'AIzaSyA8BtS14zSinY9adayg4F5jaOX5flvI41g';
+const apiKey = 'YOUR_API_KEY';
 const genAI = new GoogleGenerativeAI(apiKey);
 
 async function listModels() {
